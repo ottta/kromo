@@ -1,8 +1,9 @@
 import { TOKENS } from '@/lib/tokens';
 import type { ThemeState, TokenValues } from '@/lib/tokens';
-import { onMessage } from '@/lib/messaging';
+import { onMessage, sendMessage } from '@/lib/messaging';
 import { loadOverrides } from '@/lib/storage';
 import { readAuthoredTheme } from '@/lib/authored-theme';
+import { detectMode } from '@/lib/mode';
 
 const OVERRIDE_STYLE_ID = 'kromo-overrides';
 
@@ -14,6 +15,11 @@ export default defineContentScript({
     // sidepanel and background have no reason to see this, it just tracks
     // what's currently injected into *this* page.
     let overrides: ThemeState = { light: {}, dark: {} };
+
+    // Tracks the last mode broadcast to the panel so the MutationObserver
+    // below can dedupe no-op class mutations (e.g. unrelated class changes
+    // that don't actually flip light/dark).
+    let lastMode = detectMode(document.documentElement, document.body);
 
     function buildOverrideCss(theme: ThemeState): string {
       const blocks: string[] = [];
@@ -112,7 +118,11 @@ export default defineContentScript({
     }
 
     onMessage('readTokens', () => {
-      return { origin: location.origin, theme: readCurrentTheme() };
+      return {
+        origin: location.origin,
+        theme: readCurrentTheme(),
+        mode: detectMode(document.documentElement, document.body),
+      };
     });
 
     onMessage('applyOverrides', ({ data }) => {
@@ -123,6 +133,51 @@ export default defineContentScript({
     onMessage('resetOverrides', () => {
       clearOverrides();
     });
+
+    // Follows the site's own light/dark toggle live: whenever this page
+    // flips the `dark` class on <html> or <body> (its own theme switcher, a
+    // system-preference listener, whatever), broadcast the new mode so an
+    // open sidepanel can follow along instead of silently drifting out of
+    // sync with what's actually on screen.
+    function handleClassMutation(): void {
+      const mode = detectMode(document.documentElement, document.body);
+      if (mode === lastMode) return;
+      lastMode = mode;
+
+      // No tabId => broadcast. If no sidepanel is listening this rejects
+      // with a "no receiver" error; that's expected and not actionable.
+      sendMessage('syncMode', mode).catch(() => {
+        // No panel open to receive it - nothing to do.
+      });
+    }
+
+    const classObserverOptions: MutationObserverInit = {
+      attributes: true,
+      attributeFilter: ['class'],
+    };
+
+    const htmlClassObserver = new MutationObserver(handleClassMutation);
+    htmlClassObserver.observe(document.documentElement, classObserverOptions);
+
+    // `document.body` doesn't exist yet at document_start, so attach its
+    // observer once it does (DOMContentLoaded, or immediately if it's
+    // already there by the time this code runs).
+    function observeBody(): void {
+      if (!document.body) return;
+      // Reconcile now: `lastMode` was computed when `document.body` was still
+      // null, so if the parser already emitted a `.dark` class on <body> by
+      // the time this runs, that state would otherwise never be observed
+      // (MutationObserver only reports changes after it starts observing).
+      lastMode = detectMode(document.documentElement, document.body);
+      const bodyClassObserver = new MutationObserver(handleClassMutation);
+      bodyClassObserver.observe(document.body, classObserverOptions);
+    }
+
+    if (document.body) {
+      observeBody();
+    } else {
+      document.addEventListener('DOMContentLoaded', observeBody, { once: true });
+    }
 
     // Re-apply any previously saved per-origin overrides on load, before the
     // sidepanel ever opens.
