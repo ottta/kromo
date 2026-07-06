@@ -2,6 +2,7 @@ import { TOKENS } from '@/lib/tokens';
 import type { ThemeState, TokenValues } from '@/lib/tokens';
 import { onMessage } from '@/lib/messaging';
 import { loadOverrides } from '@/lib/storage';
+import { readAuthoredTheme } from '@/lib/authored-theme';
 
 const OVERRIDE_STYLE_ID = 'kromo-overrides';
 
@@ -65,7 +66,10 @@ export default defineContentScript({
       return values;
     }
 
-    function readCurrentTheme(): ThemeState {
+    // Whole-bucket fallback: reflects whatever mode is ACTIVE at read time
+    // (computed style), used only when the authored (CSSOM) read below can't
+    // find anything for a given bucket at all.
+    function readComputedTheme(): ThemeState {
       const light = readComputedTokenValues(document.documentElement);
 
       // shadcn's `.dark { --x: ... }` rule only sets custom properties on
@@ -85,6 +89,26 @@ export default defineContentScript({
       probe.remove();
 
       return { light, dark };
+    }
+
+    function readCurrentTheme(): ThemeState {
+      const authored = readAuthoredTheme(document.styleSheets);
+      const authoredLightEmpty = Object.keys(authored.light).length === 0;
+      const authoredDarkEmpty = Object.keys(authored.dark).length === 0;
+
+      if (!authoredLightEmpty && !authoredDarkEmpty) {
+        return authored;
+      }
+
+      // getComputedStyle reflects whichever mode is active right now, so it
+      // contaminates the "light" bucket on sites that auto-load dark mode.
+      // Fall back per WHOLE bucket only (never mix per-token) so we don't
+      // reintroduce that contamination into an otherwise-authored bucket.
+      const computed = readComputedTheme();
+      return {
+        light: authoredLightEmpty ? computed.light : authored.light,
+        dark: authoredDarkEmpty ? computed.dark : authored.dark,
+      };
     }
 
     onMessage('readTokens', () => {
