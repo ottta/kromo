@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { browser, type Browser } from 'wxt/browser';
   import { createThemeStore, setThemeStore } from '@/lib/theme-store.svelte';
-  import { sendMessage } from '@/lib/messaging';
+  import { onMessage, sendMessage } from '@/lib/messaging';
   import { loadOverrides, saveOverrides, clearOverrides } from '@/lib/storage';
   import { TOKENS, type TokenGroup } from '@/lib/tokens';
   import { originFromUrl } from '@/lib/url';
@@ -131,9 +131,10 @@
 
       tabId = tab.id;
 
-      const { theme: baseline } = await sendMessage('readTokens', undefined, tabId);
+      const { theme: baseline, mode } = await sendMessage('readTokens', undefined, tabId);
       const persisted = await loadOverrides(origin);
       store.loadTheme(origin, persisted ?? baseline);
+      store.setMode(mode);
 
       if (persisted) {
         await sendMessage('applyOverrides', persisted, tabId);
@@ -196,9 +197,18 @@
     browser.tabs.onActivated.addListener(handleActivated);
     browser.tabs.onUpdated.addListener(handleUpdated);
 
+    // Follows the site's own light/dark toggle live: content.ts broadcasts
+    // `syncMode` whenever the page flips its `dark` class. Guard by the
+    // active tabId so mode changes from background tabs are ignored.
+    const unsubscribeSyncMode = onMessage('syncMode', (message) => {
+      if (message.sender?.tab?.id !== tabId) return;
+      store.setMode(message.data);
+    });
+
     return () => {
       browser.tabs.onActivated.removeListener(handleActivated);
       browser.tabs.onUpdated.removeListener(handleUpdated);
+      unsubscribeSyncMode();
     };
   });
 </script>
