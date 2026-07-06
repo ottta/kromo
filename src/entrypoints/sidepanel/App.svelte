@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { browser } from 'wxt/browser';
+  import { browser, type Browser } from 'wxt/browser';
   import { createThemeStore, setThemeStore } from '@/lib/theme-store.svelte';
   import { sendMessage } from '@/lib/messaging';
   import { loadOverrides, saveOverrides, clearOverrides } from '@/lib/storage';
   import { TOKENS, type TokenGroup } from '@/lib/tokens';
+  import { originFromUrl } from '@/lib/url';
   import PanelHeader from './lib/PanelHeader.svelte';
   import TokenRow from './lib/TokenRow.svelte';
   import ExportDialog from './lib/ExportDialog.svelte';
@@ -108,12 +109,20 @@
     }
   }
 
-  onMount(async () => {
+  // Re-resolves the active tab + origin from scratch. Called on mount, and
+  // again whenever the active tab's origin changes (tab switch or same-tab
+  // navigation) so the panel never keeps showing a stale snapshot from a
+  // page that's no longer in front.
+  async function crawlActiveTab(): Promise<void> {
+    clearTimeout(applyTimer);
+    status = 'loading';
+
     try {
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-      const origin = tab?.url ? new URL(tab.url).origin : '';
+      const origin = originFromUrl(tab?.url);
 
       if (!origin || tab?.id === undefined) {
+        tabId = undefined;
         status = 'unavailable';
         unavailableMessage =
           "Kromo can't edit this page. Open a regular website tab to read and edit its theme.";
@@ -137,6 +146,60 @@
       unavailableMessage =
         'Kromo could not connect to this page. Try reloading the tab and reopening the panel.';
     }
+  }
+
+  onMount(() => {
+    void crawlActiveTab();
+
+    // Re-crawl if either the origin or the active tab id changed. Comparing
+    // tabId too (not just origin) matters for two cases the origin-only
+    // check misses: switching back to the same origin from an "unavailable"
+    // tab (store.origin was never updated while unavailable, so an
+    // origin-only check would see no change and stay stuck), and switching
+    // between two different tabs that happen to share an origin (which would
+    // otherwise leave `tabId` - and therefore live preview - pointed at the
+    // wrong tab). Same-tab SPA routing (same tabId, same origin) is still
+    // skipped; crawlActiveTab always re-resolves the current active tab, so
+    // any extra re-crawl here is harmless.
+    function shouldRecrawl(origin: string | null, newTabId: number | undefined): boolean {
+      return origin !== store.origin || newTabId !== tabId;
+    }
+
+    const handleActivated = (activeInfo: Browser.tabs.OnActivatedInfo): void => {
+      void (async () => {
+        try {
+          const tab = await browser.tabs.get(activeInfo.tabId);
+          const origin = originFromUrl(tab.url);
+          if (shouldRecrawl(origin, tab.id)) {
+            await crawlActiveTab();
+          }
+        } catch (error) {
+          console.error('Kromo: failed to resolve activated tab', error);
+        }
+      })();
+    };
+
+    const handleUpdated = (
+      updatedTabId: number,
+      changeInfo: Browser.tabs.OnUpdatedInfo,
+      tab: Browser.tabs.Tab,
+    ): void => {
+      if (!tab.active) return;
+      if (changeInfo.status !== 'complete' && !changeInfo.url) return;
+
+      const origin = originFromUrl(tab.url);
+      if (shouldRecrawl(origin, updatedTabId)) {
+        void crawlActiveTab();
+      }
+    };
+
+    browser.tabs.onActivated.addListener(handleActivated);
+    browser.tabs.onUpdated.addListener(handleUpdated);
+
+    return () => {
+      browser.tabs.onActivated.removeListener(handleActivated);
+      browser.tabs.onUpdated.removeListener(handleUpdated);
+    };
   });
 </script>
 
