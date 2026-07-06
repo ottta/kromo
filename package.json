@@ -1,6 +1,6 @@
 {
   "name": "kromo",
-  "description": "manifest.json description",
+  "description": "Live shadcn/ui theme editor for the real active tab — inspired by tweakcn.",
   "private": true,
   "version": "0.0.0",
   "type": "module",
