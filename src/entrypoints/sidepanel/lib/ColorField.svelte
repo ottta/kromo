@@ -1,5 +1,18 @@
 <script lang="ts">
+  import {
+    InputGroupAddon,
+    InputGroupButton,
+    InputGroupInput,
+  } from '@/lib/components/ui/input-group';
+  import { Popover, PopoverContent, PopoverTrigger } from '@/lib/components/ui/popover';
   import { toHex, toOklch } from '@/lib/css';
+  import {
+    CHECKERBOARD_BACKGROUND_IMAGE,
+    CHECKERBOARD_BACKGROUND_POSITION,
+    CHECKERBOARD_BACKGROUND_SIZE,
+    cn,
+  } from '@/lib/utils';
+  import ColorPicker from './ColorPicker.svelte';
 
   let { value, onInput }: { value: string; onInput: (value: string) => void } = $props();
 
@@ -13,32 +26,47 @@
     }
   }
 
-  const hex = $derived(safeHex(value));
-
-  // The swatch only ever produces #rrggbb; normalize to oklch() so the
-  // exported stylesheet stays in a single, consistent color format.
-  function handleSwatchInput(nextHex: string): void {
-    try {
-      onInput(toOklch(nextHex));
-    } catch {
-      onInput(nextHex);
-    }
+  // Alpha-preserving CSS color for the swatch preview (falls back to an
+  // opaque hex for empty/unparseable input, since toOklch echoes those back
+  // verbatim rather than throwing). Layered over a checkerboard in
+  // `swatchStyle` below so translucency reads correctly.
+  function safeCssColor(raw: string): string {
+    const normalized = toOklch(raw);
+    return /^oklch\(/i.test(normalized) ? normalized : safeHex(raw);
   }
+
+  const swatchColor = $derived(safeCssColor(value));
+
+  // Color layer first (paints on top, so its own alpha shows the
+  // checkerboard through), checkerboard layers behind.
+  const swatchStyle = $derived(
+    [
+      `background-image: linear-gradient(${swatchColor}, ${swatchColor}), ${CHECKERBOARD_BACKGROUND_IMAGE};`,
+      `background-size: 100% 100%, ${CHECKERBOARD_BACKGROUND_SIZE};`,
+      `background-position: 0 0, ${CHECKERBOARD_BACKGROUND_POSITION};`,
+    ].join(' '),
+  );
 </script>
 
-<div class="flex min-w-0 flex-1 items-center justify-end gap-1.5">
-  <input
-    type="color"
-    class="h-6 w-6 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0"
-    value={hex}
-    oninput={(event) => handleSwatchInput(event.currentTarget.value)}
-    aria-label="Pick color"
-  />
-  <input
-    type="text"
-    class="w-full min-w-0 rounded border border-input bg-background px-1.5 py-1 text-right font-mono text-[11px] text-foreground"
-    {value}
-    oninput={(event) => onInput(event.currentTarget.value)}
-    spellcheck="false"
-  />
-</div>
+<InputGroupInput
+  type="text"
+  class={cn('text-right', 'font-mono', 'text-sm')}
+  {value}
+  oninput={(event) => onInput(event.currentTarget.value)}
+  spellcheck="false"
+/>
+
+<InputGroupAddon align="inline-end">
+  <Popover>
+    <PopoverTrigger>
+      {#snippet child({ props })}
+        <InputGroupButton {...props} size="icon-xs" variant="outline" style={swatchStyle}>
+          <span class="sr-only">{swatchColor}</span>
+        </InputGroupButton>
+      {/snippet}
+    </PopoverTrigger>
+    <PopoverContent class={cn('w-64')}>
+      <ColorPicker {value} {onInput} />
+    </PopoverContent>
+  </Popover>
+</InputGroupAddon>

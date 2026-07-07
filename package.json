@@ -1,29 +1,36 @@
 {
   "name": "kromo",
-  "description": "Live shadcn/ui theme editor for the real active tab — inspired by tweakcn.",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
+  "description": "Live shadcn/ui theme editor for the real active tab — inspired by tweakcn.",
   "type": "module",
   "scripts": {
-    "dev": "wxt",
-    "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
-    "zip": "wxt zip",
-    "zip:firefox": "wxt zip -b firefox",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "postinstall": "wxt prepare",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "wxt prepare"
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1.23.0",
+    "@webext-core/messaging": "^3.0.2",
+    "bits-ui": "^2.18.1",
+    "culori": "^4.0.2"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.0",
     "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
+    "@internationalized/date": "^3.12.0",
     "@tailwindcss/vite": "^4.3.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5.4.2",
@@ -31,6 +38,7 @@
     "@types/culori": "^4",
     "@vitest/ui": "^4.1.10",
     "@wxt-dev/module-svelte": "^2.0.5",
+    "clsx": "^2.1.1",
     "eslint": "^10.6.0",
     "eslint-plugin-svelte": "^3.20.0",
     "globals": "^17.7.0",
@@ -42,15 +50,14 @@
     "svelte": "^5.56.4",
     "svelte-check": "^4.7.1",
     "svelte-eslint-parser": "^1.8.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwind-variants": "^3.2.2",
     "tailwindcss": "^4",
     "tslib": "^2.8.1",
+    "tw-animate-css": "^1.4.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1",
     "vitest": "^4.1.10",
     "wxt": "^0.20.27"
-  },
-  "dependencies": {
-    "@webext-core/messaging": "^3.0.2",
-    "culori": "^4.0.2"
   }
 }

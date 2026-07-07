@@ -8,6 +8,12 @@ export default defineConfig({
   // plugin (needed to compile the runes in theme-store.svelte.ts) must be
   // added explicitly.
   plugins: [svelte({ configFile: false }), WxtVitest()],
+  resolve: {
+    // Svelte ships separate client/server builds; without forcing the
+    // "browser" condition, vitest resolves the server build and
+    // @testing-library/svelte's `mount()` throws (lifecycle_function_unavailable).
+    conditions: ['browser'],
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
