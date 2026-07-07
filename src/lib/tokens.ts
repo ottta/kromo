@@ -187,3 +187,20 @@ export interface ThemeState {
   light: TokenValues;
   dark: TokenValues;
 }
+
+/**
+ * Groups excluded from the "does this site support shadcn/ui tokens" check.
+ * Chart and sidebar tokens are optional theme extensions that many real
+ * shadcn/ui sites never define, unlike the rest of the token set which the
+ * shadcn/ui generator always emits.
+ */
+const OPTIONAL_TOKEN_GROUPS: TokenGroup[] = ['chart', 'sidebar'];
+
+export const CORE_TOKENS: TokenDef[] = TOKENS.filter(
+  (token) => !OPTIONAL_TOKEN_GROUPS.includes(token.group),
+);
+
+/** True when every core token resolves to a non-empty value. */
+export function isThemeSupported(values: TokenValues): boolean {
+  return CORE_TOKENS.every((token) => Boolean(values[token.cssVar]));
+}

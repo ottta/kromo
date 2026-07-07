@@ -4,7 +4,7 @@
   import { createThemeStore, setThemeStore } from '@/lib/theme-store.svelte';
   import { onMessage, sendMessage } from '@/lib/messaging';
   import { loadOverrides, saveOverrides, clearOverrides } from '@/lib/storage';
-  import { TOKENS, type TokenGroup } from '@/lib/tokens';
+  import { TOKENS, isThemeSupported, type TokenGroup } from '@/lib/tokens';
   import { originFromUrl } from '@/lib/url';
   import PanelHeader from './lib/PanelHeader.svelte';
   import TokenRow from './lib/TokenRow.svelte';
@@ -21,11 +21,12 @@
 
   const store = setThemeStore(createThemeStore());
 
-  type Status = 'loading' | 'ready' | 'unavailable';
+  type Status = 'loading' | 'ready' | 'unavailable' | 'unsupported';
 
   let status = $state<Status>('loading');
   let unavailableMessage = $state('');
   let tabId = $state<number | undefined>(undefined);
+  let darkSupported = $state(false);
 
   let showExport = $state(false);
   let showImport = $state(false);
@@ -139,6 +140,7 @@
 
       if (!origin || tab?.id === undefined) {
         tabId = undefined;
+        darkSupported = false;
         status = 'unavailable';
         unavailableMessage =
           "Kromo can't edit this page. Open a regular website tab to read and edit its theme.";
@@ -148,6 +150,15 @@
       tabId = tab.id;
 
       const { theme: baseline, mode } = await sendMessage('readTokens', undefined, tabId);
+
+      if (!isThemeSupported(baseline.light)) {
+        darkSupported = false;
+        status = 'unsupported';
+        return;
+      }
+
+      darkSupported = isThemeSupported(baseline.dark);
+
       const persisted = await loadOverrides(origin);
       store.loadTheme(origin, persisted ?? baseline);
       store.setMode(mode);
@@ -159,6 +170,7 @@
       status = 'ready';
     } catch (error) {
       console.error('Kromo: failed to initialize sidepanel', error);
+      darkSupported = false;
       status = 'unavailable';
       unavailableMessage =
         'Kromo could not connect to this page. Try reloading the tab and reopening the panel.';
@@ -229,7 +241,7 @@
   });
 </script>
 
-<PanelHeader ready={status === 'ready'} />
+<PanelHeader showModeToggle={status === 'ready' && darkSupported} />
 
 <main class={cn('min-h-screen')}>
   {#if status === 'loading'}
@@ -243,6 +255,15 @@
       class="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground"
     >
       {unavailableMessage}
+    </div>
+  {:else if status === 'unsupported'}
+    <div class="flex flex-1 flex-col gap-2 items-center justify-center p-6 text-center">
+      <p class="text-sm font-medium text-foreground">No shadcn/ui tokens found</p>
+      <p class="text-sm text-muted-foreground">
+        This site doesn't define the core shadcn/ui theme tokens (such as
+        <code class="text-xs">--background</code>, <code class="text-xs">--foreground</code>, and
+        <code class="text-xs">--primary</code>), so there's nothing for Kromo to edit here.
+      </p>
     </div>
   {:else}
     <div class="flex-1 overflow-y-auto">
