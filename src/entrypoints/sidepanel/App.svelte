@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { browser, type Browser } from 'wxt/browser';
   import { createThemeStore, setThemeStore } from '@/lib/theme-store.svelte';
+  import { createFreshTabTracker } from '@/lib/fresh-tab-tracker';
   import { onMessage, sendMessage } from '@/lib/messaging';
   import { loadOverrides, saveOverrides, clearOverrides } from '@/lib/storage';
   import { TOKENS, isThemeSupported, type TokenGroup } from '@/lib/tokens';
@@ -194,11 +195,22 @@
       return origin !== store.origin || newTabId !== tabId;
     }
 
+    const freshTabTracker = createFreshTabTracker();
+
+    const handleCreated = (tab: Browser.tabs.Tab): void => {
+      if (tab.id !== undefined) freshTabTracker.markCreated(tab.id);
+    };
+
+    const handleRemoved = (removedTabId: number): void => {
+      freshTabTracker.markRemoved(removedTabId);
+    };
+
     const handleActivated = (activeInfo: Browser.tabs.OnActivatedInfo): void => {
       void (async () => {
         try {
           const tab = await browser.tabs.get(activeInfo.tabId);
           const origin = originFromUrl(tab.url);
+          if (freshTabTracker.shouldIgnore(activeInfo.tabId, origin)) return;
           if (shouldRecrawl(origin, tab.id)) {
             await crawlActiveTab();
           }
@@ -217,11 +229,14 @@
       if (changeInfo.status !== 'complete' && !changeInfo.url) return;
 
       const origin = originFromUrl(tab.url);
+      if (freshTabTracker.shouldIgnore(updatedTabId, origin)) return;
       if (shouldRecrawl(origin, updatedTabId)) {
         void crawlActiveTab();
       }
     };
 
+    browser.tabs.onCreated.addListener(handleCreated);
+    browser.tabs.onRemoved.addListener(handleRemoved);
     browser.tabs.onActivated.addListener(handleActivated);
     browser.tabs.onUpdated.addListener(handleUpdated);
 
@@ -234,6 +249,8 @@
     });
 
     return () => {
+      browser.tabs.onCreated.removeListener(handleCreated);
+      browser.tabs.onRemoved.removeListener(handleRemoved);
       browser.tabs.onActivated.removeListener(handleActivated);
       browser.tabs.onUpdated.removeListener(handleUpdated);
       unsubscribeSyncMode();
