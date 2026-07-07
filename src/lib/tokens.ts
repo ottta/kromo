@@ -8,7 +8,18 @@
 
 export type TokenType = 'color' | 'dimension';
 
-export type TokenGroup = 'base' | 'card' | 'primary' | 'state' | 'border' | 'chart' | 'sidebar';
+export type TokenGroup =
+  | 'base'
+  | 'card'
+  | 'popover'
+  | 'primary'
+  | 'secondary'
+  | 'muted'
+  | 'accent'
+  | 'state'
+  | 'border'
+  | 'chart'
+  | 'sidebar';
 
 export interface TokenDef {
   /** Stable identifier, matches the CSS var name without the `--` prefix. */
@@ -26,69 +37,75 @@ export const TOKENS: TokenDef[] = [
   { name: 'foreground', cssVar: '--foreground', label: 'Foreground', type: 'color', group: 'base' },
 
   // card / popover surfaces
-  { name: 'card', cssVar: '--card', label: 'Card', type: 'color', group: 'card' },
+  { name: 'card', cssVar: '--card', label: 'Background', type: 'color', group: 'card' },
   {
     name: 'card-foreground',
     cssVar: '--card-foreground',
-    label: 'Card Foreground',
+    label: 'Foreground',
     type: 'color',
     group: 'card',
   },
-  { name: 'popover', cssVar: '--popover', label: 'Popover', type: 'color', group: 'card' },
+  { name: 'popover', cssVar: '--popover', label: 'Background', type: 'color', group: 'popover' },
   {
     name: 'popover-foreground',
     cssVar: '--popover-foreground',
-    label: 'Popover Foreground',
+    label: 'Foreground',
     type: 'color',
-    group: 'card',
+    group: 'popover',
   },
 
   // primary / secondary / muted / accent
-  { name: 'primary', cssVar: '--primary', label: 'Primary', type: 'color', group: 'primary' },
+  { name: 'primary', cssVar: '--primary', label: 'Background', type: 'color', group: 'primary' },
   {
     name: 'primary-foreground',
     cssVar: '--primary-foreground',
-    label: 'Primary Foreground',
+    label: 'Foreground',
     type: 'color',
     group: 'primary',
   },
-  { name: 'secondary', cssVar: '--secondary', label: 'Secondary', type: 'color', group: 'primary' },
+  {
+    name: 'secondary',
+    cssVar: '--secondary',
+    label: 'Background',
+    type: 'color',
+    group: 'secondary',
+  },
   {
     name: 'secondary-foreground',
     cssVar: '--secondary-foreground',
-    label: 'Secondary Foreground',
+    label: 'Foreground',
     type: 'color',
-    group: 'primary',
+    group: 'secondary',
   },
-  { name: 'muted', cssVar: '--muted', label: 'Muted', type: 'color', group: 'primary' },
+  { name: 'muted', cssVar: '--muted', label: 'Background', type: 'color', group: 'muted' },
   {
     name: 'muted-foreground',
     cssVar: '--muted-foreground',
-    label: 'Muted Foreground',
+    label: 'Foreground',
     type: 'color',
-    group: 'primary',
+    group: 'muted',
   },
-  { name: 'accent', cssVar: '--accent', label: 'Accent', type: 'color', group: 'primary' },
+  { name: 'accent', cssVar: '--accent', label: 'Background', type: 'color', group: 'accent' },
   {
     name: 'accent-foreground',
     cssVar: '--accent-foreground',
-    label: 'Accent Foreground',
+    label: 'Foreground',
     type: 'color',
-    group: 'primary',
+    group: 'accent',
   },
 
   // state
   {
     name: 'destructive',
     cssVar: '--destructive',
-    label: 'Destructive',
+    label: 'Background',
     type: 'color',
     group: 'state',
   },
   {
     name: 'destructive-foreground',
     cssVar: '--destructive-foreground',
-    label: 'Destructive Foreground',
+    label: 'Foreground',
     type: 'color',
     group: 'state',
   },
@@ -111,7 +128,7 @@ export const TOKENS: TokenDef[] = [
   {
     name: 'sidebar-foreground',
     cssVar: '--sidebar-foreground',
-    label: 'Sidebar Foreground',
+    label: 'Foreground',
     type: 'color',
     group: 'sidebar',
   },

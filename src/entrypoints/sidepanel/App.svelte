@@ -10,6 +10,14 @@
   import TokenRow from './lib/TokenRow.svelte';
   import ExportDialog from './lib/ExportDialog.svelte';
   import ImportDialog from './lib/ImportDialog.svelte';
+  import PanelFooter from './lib/PanelFooter.svelte';
+  import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+  } from '@/lib/components/ui/accordion';
+  import { cn } from '@/lib/utils';
 
   const store = setThemeStore(createThemeStore());
 
@@ -24,17 +32,25 @@
 
   const GROUP_ORDER: TokenGroup[] = [
     'base',
-    'card',
     'primary',
+    'secondary',
+    'muted',
+    'accent',
     'state',
+    'card',
+    'popover',
     'border',
     'chart',
     'sidebar',
   ];
   const GROUP_LABELS: Record<TokenGroup, string> = {
     base: 'Base',
-    card: 'Card & Popover',
-    primary: 'Primary / Secondary / Muted / Accent',
+    card: 'Card',
+    popover: 'Popover',
+    primary: 'Primary',
+    secondary: 'Secondary',
+    muted: 'Muted',
+    accent: 'Accent',
     state: 'State',
     border: 'Border, Input & Ring',
     chart: 'Charts',
@@ -213,14 +229,9 @@
   });
 </script>
 
-<div class="flex min-h-screen w-full flex-col bg-background text-foreground">
-  <PanelHeader
-    ready={status === 'ready'}
-    onExport={() => (showExport = true)}
-    onImport={() => (showImport = true)}
-    onReset={handleReset}
-  />
+<PanelHeader ready={status === 'ready'} />
 
+<main class={cn('min-h-screen')}>
   {#if status === 'loading'}
     <div
       class="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground"
@@ -234,22 +245,33 @@
       {unavailableMessage}
     </div>
   {:else}
-    <div class="flex-1 overflow-y-auto px-3 py-3">
-      {#each groups as g (g.group)}
-        <section class="mb-4 last:mb-0">
-          <h2 class="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-            {g.label}
-          </h2>
-          <div class="flex flex-col gap-1.5">
-            {#each g.tokens as token (token.cssVar)}
-              <TokenRow {token} onEdited={scheduleApply} />
-            {/each}
-          </div>
-        </section>
-      {/each}
+    <div class="flex-1 overflow-y-auto">
+      <Accordion type="single" value={groups[0].group} class={cn('py-1')}>
+        {#each groups as g (g.group)}
+          <AccordionItem value={g.group} class={cn('px-1')}>
+            <AccordionTrigger class={cn('px-3')}>
+              {g.label}
+            </AccordionTrigger>
+            <AccordionContent>
+              <div class="flex flex-col gap-1 pt-1 px-1">
+                {#each g.tokens as token (token.cssVar)}
+                  <TokenRow {token} onEdited={scheduleApply} />
+                {/each}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        {/each}
+      </Accordion>
     </div>
   {/if}
-</div>
+</main>
+
+<PanelFooter
+  ready={status === 'ready'}
+  onExport={() => (showExport = true)}
+  onImport={() => (showImport = true)}
+  onReset={handleReset}
+/>
 
 {#if showExport}
   <ExportDialog onClose={() => (showExport = false)} />
