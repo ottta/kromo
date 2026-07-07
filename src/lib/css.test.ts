@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseThemeCss, serializeThemeCss, toHex, toOklch } from './css';
+import { formatOklch, parseColor, parseThemeCss, serializeThemeCss, toHex, toOklch } from './css';
 import type { ThemeState } from './tokens';
 
 describe('parseThemeCss / serializeThemeCss', () => {
@@ -49,5 +49,53 @@ describe('toOklch / toHex', () => {
 
   it('round-trips hex -> oklch -> hex', () => {
     expect(toHex(toOklch('#336699'))).toBe('#336699');
+  });
+});
+
+describe('parseColor / formatOklch', () => {
+  it('round-trips an opaque in-gamut color', () => {
+    expect(formatOklch(parseColor('oklch(0.6 0.1 150)'))).toBe('oklch(0.6 0.1 150)');
+  });
+
+  it('round-trips a color with alpha, formatting it as a whole-number percent', () => {
+    expect(formatOklch(parseColor('oklch(0.5 0.05 200 / 50%)'))).toBe('oklch(0.5 0.05 200 / 50%)');
+  });
+
+  it('omits the alpha suffix for fully opaque colors', () => {
+    expect(formatOklch(parseColor('oklch(0.5 0.05 200)'))).not.toContain('/');
+  });
+
+  it('reports a missing/NaN hue as 0 for achromatic colors', () => {
+    expect(parseColor('#808080')).toMatchObject({ c: 0, h: 0 });
+  });
+
+  it('clamps out-of-gamut chroma down to the sRGB boundary', () => {
+    const { c } = parseColor(formatOklch({ l: 0.7, c: 0.5, h: 30, alpha: 1 }));
+    expect(c).toBeLessThan(0.5);
+  });
+
+  it('defaults alpha to 1 when unparseable input falls back', () => {
+    expect(parseColor('not-a-color')).toEqual({ l: 0, c: 0, h: 0, alpha: 1 });
+  });
+
+  // A live color picker seeds its state from `value`, but only when that
+  // value didn't just come from its own emit (see ColorPicker.svelte's
+  // `lastEmitted` guard). That guard only holds if formatting our own output
+  // a second time is a no-op - otherwise every emit would re-seed the
+  // picker's internal state mid-interaction.
+  it('is a fixed point: re-formatting its own output is a no-op', () => {
+    const inputs = [
+      'oklch(0.7 0.15 30)',
+      'oklch(0.5 0.05 200 / 50%)',
+      '#808080',
+      'oklch(0.7 0.5 30)', // out-of-gamut chroma, forces clamping
+      'oklch(0.5 0.1 200 / 40%)', // out-of-gamut + alpha
+      'oklch(0.9 0.4 10)',
+    ];
+    for (const input of inputs) {
+      const once = formatOklch(parseColor(input));
+      const twice = formatOklch(parseColor(once));
+      expect(twice).toBe(once);
+    }
   });
 });
