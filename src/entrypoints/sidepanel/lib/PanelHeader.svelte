@@ -6,9 +6,9 @@
   import { cn } from '@/lib/utils';
 
   let {
-    ready,
+    showModeToggle,
   }: {
-    ready: boolean;
+    showModeToggle: boolean;
   } = $props();
 
   const store = getThemeStore();
@@ -40,24 +40,24 @@
     {/if}
   </div>
 
-  <ButtonGroup>
-    <Button
-      type="button"
-      size="sm"
-      variant={store.mode === 'light' ? 'default' : 'secondary'}
-      onclick={() => setMode('light')}
-      disabled={!ready}
-    >
-      Light
-    </Button>
-    <Button
-      type="button"
-      size="sm"
-      variant={store.mode === 'dark' ? 'default' : 'secondary'}
-      onclick={() => setMode('dark')}
-      disabled={!ready}
-    >
-      Dark
-    </Button>
-  </ButtonGroup>
+  {#if showModeToggle}
+    <ButtonGroup>
+      <Button
+        type="button"
+        size="sm"
+        variant={store.mode === 'light' ? 'default' : 'secondary'}
+        onclick={() => setMode('light')}
+      >
+        Light
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={store.mode === 'dark' ? 'default' : 'secondary'}
+        onclick={() => setMode('dark')}
+      >
+        Dark
+      </Button>
+    </ButtonGroup>
+  {/if}
 </header>
